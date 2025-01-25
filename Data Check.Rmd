@@ -1,0 +1,51 @@
+---
+title: "Data Check"
+output: pdf_document
+date: "2025-01-24"
+---
+
+```{r}
+# add a new column; adding group(s)
+events_full <- events_full %>%
+  mutate(
+    group = case_when(
+      coverage_start_date < ibis_coverage_start_date ~ "Pre-IBIS",  # Before IBIS started
+      coverage_start_date >= ibis_coverage_start_date & coverage_start_date <= ibis_coverage_end_date ~ "IBIS",  # During IBIS coverage
+      coverage_start_date > ibis_coverage_end_date ~ "Post-IBIS"  # After IBIS ended
+    )
+  )
+
+# Checking to see if the Group label was added to "events_full" (it is all the way at the end)
+head(events_full)
+```
+
+```{r}
+# counts the rows of groups
+events_summary <- events_full %>%
+  group_by(group) %>%
+  summarise(Total_Events = n())  # counts each row and outputs a number
+
+# printing the summary
+print(events_summary)
+```
+
+```{r}
+events_full <- events_full %>%
+  mutate(coverage_days = as.numeric(difftime(coverage_end_date, coverage_start_date, units = "days")))
+
+# summarize 
+coverage_summary <- events_full %>%
+  group_by(group) %>%
+  summarise(Total_Coverage_Days = sum(coverage_days, na.rm = TRUE))
+
+# printing the summary
+print(coverage_summary)
+```
+
+```{r}
+# bar plot by group
+ggplot(events_summary, aes(x = group, y = Total_Events, fill = group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Events: Pre-IBIS vs IBIS vs Post-IBIS", x = "Group", y = "Total Events") +
+  theme_minimal()
+```
