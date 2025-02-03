@@ -1,0 +1,135 @@
+---
+title: "Assignment #2"
+output: pdf_document
+date: "2025-01-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r libraries}
+library(survival)
+library(tidyverse)
+library(tidymodels)
+library(lubridate)
+library(lmtest)
+
+library(car)
+library(poissonreg)
+
+library(pscl)
+
+library(broom)
+library(broom.mixed)
+
+library(readr)
+library(skimr)
+```
+
+```{r}
+events <- read_csv("events_toy.csv")
+report <- read_csv("report_toy.csv")
+glimpse(events)
+```
+
+```{r}
+events_full %>% 
+  mutate(
+    days_since_start = event_start_date - coverage_start_date,  # calculate days since coverage start
+    days_since_ibis = event_start_date - ibis_coverage_start_date  # calculate days since ibis coverage start
+  ) %>%
+  select(coverage_start_date, event_start_date, days_since_start, ibis_coverage_start_date, days_since_ibis)
+
+```
+
+```{r}
+events_full %>%
+  mutate(
+    event_between_coverage_dates = ifelse(
+      event_start_date >= coverage_start_date & event_start_date <= ibis_coverage_start_date, 
+      1, 
+      0
+    ),
+    event_between_ibis_dates = ifelse(
+      event_start_date >= ibis_coverage_start_date & event_start_date <= ibis_coverage_end_date, 
+      1, 
+      0
+    )
+  ) %>%
+  select(
+    coverage_start_date, 
+    event_start_date, 
+    ibis_coverage_start_date, 
+    ibis_coverage_end_date, 
+    event_between_coverage_dates, 
+    event_between_ibis_dates
+  )
+# 1 = yes, event is between dates
+# 0 = no, event is not between dates
+```
+
+```{r}
+events_full %>%
+  mutate(
+    # create the new column event_in_any_range
+    event_in_any_range = ifelse(
+      (event_start_date >= coverage_start_date & event_start_date <= ibis_coverage_start_date) |
+      (event_start_date >= ibis_coverage_start_date & event_start_date <= ibis_coverage_end_date),
+      1,  # condition is met, assign 1
+      0   # if not, assign 0
+    ),
+    
+    # checking agreement
+    check_agreement_after_ibis_started = ifelse(event_in_any_range == after_ibis_started, 1, 0),
+    check_agreement_after_ibis_ended = ifelse(event_in_any_range == after_ibis_ended, 1, 0),
+    check_agreement_during_ibis_support = ifelse(event_in_any_range == during_ibis_support, 1, 0)
+  ) %>%
+  
+  # selecting needed columns
+  select(
+    coverage_start_date, 
+    event_start_date, 
+    ibis_coverage_start_date, 
+    ibis_coverage_end_date, 
+    event_in_any_range, 
+    after_ibis_started, 
+    after_ibis_ended, 
+    during_ibis_support,
+    check_agreement_after_ibis_started, 
+    check_agreement_after_ibis_ended,
+    check_agreement_during_ibis_support
+  )
+
+
+```
+
+```{r}
+# create a toy dataset with 'timestamp' as seconds since epoch
+df <- tibble(timestamp = rep(1732424400, 10))  # example timestamp for 2025-01-01 00:00:00 UTC
+
+# check the original timestamps in POSIXct format
+df %>% 
+  mutate(original_date = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"))
+  
+# add uniform random days between -5 and 5 to the timestamps
+df_tweaked <- df %>%
+  mutate(
+    # add random days, convert to seconds
+    timestamp_tweaked = timestamp + sample(-5:5, n(), replace = TRUE) * 86400
+  ) %>%
+  mutate(
+    # convert the times back
+    tweaked_date = as.POSIXct(timestamp_tweaked, origin = "1970-01-01", tz = "UTC")
+  )
+
+# view the original and tweaked dates
+df_tweaked
+
+```

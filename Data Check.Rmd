@@ -2,36 +2,73 @@
 title: "Data Check"
 output: pdf_document
 date: "2025-01-24"
+format: pdf
 ---
 
 ```{r}
-# add a new column; adding group(s)
-events_full <- events_full %>%
-  mutate(
-    group = case_when(
-      coverage_start_date < ibis_coverage_start_date ~ "Pre-IBIS",  # Before IBIS started
-      coverage_start_date >= ibis_coverage_start_date & coverage_start_date <= ibis_coverage_end_date ~ "IBIS",  # During IBIS coverage
-      coverage_start_date > ibis_coverage_end_date ~ "Post-IBIS"  # After IBIS ended
-    )
-  )
+library(survival)
+library(tidyverse)
+library(tidymodels)
+library(lubridate)
+library(lmtest)
 
-# Checking to see if the Group label was added to "events_full" (it is all the way at the end)
-head(events_full)
+library(car)
+library(poissonreg)
+
+library(pscl)
+
+library(broom)
+library(broom.mixed)
+
+library(readr)
+library(skimr)
+events <- read_csv("events_toy.csv")
+report <- read_csv("report_toy.csv")
+
+reports_full <- report %>%
+  mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+  rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+  mutate(across(event_type, ~ str_replace(.x, " ", "_"))) |>
+  mutate(across(event_type, ~as.factor(.x)))
+glimpse(reports_full)
+
+events_full <- events %>%
+  mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+  rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+  mutate(across(event_type, ~ str_replace(.x, " ", "_"))) |>
+  mutate(across(event_type, ~as.factor(.x)))
+glimpse(events_full)
+```
+
+```{r}
+# add a new column; adding group(s)
+events_full <- events_full  %>%
+  mutate(groups = case_when(
+    coverage_start_date < ibis_coverage_start_date ~ "Pre-IBIS",
+    coverage_start_date >= ibis_coverage_start_date & coverage_start_date <= ibis_coverage_end_date ~ "IBIS",
+    coverage_start_date > ibis_coverage_end_date ~ "Post-IBIS"
+  ))
+
+glimpse(events_full)
 ```
 
 ```{r}
 # counts the rows of groups
-events_summary <- events_full %>%
+events_full <- events %>%
   group_by(group) %>%
   summarise(Total_Events = n())  # counts each row and outputs a number
 
 # printing the summary
-print(events_summary)
+print(events_full)
+
+glimpse(events_full)
 ```
 
 ```{r}
-events_full <- events_full %>%
-  mutate(coverage_days = as.numeric(difftime(coverage_end_date, coverage_start_date, units = "days")))
+events_full <- events %>%
+  mutate(coverage_days = as.numeric(difftime(ibis_coverage_end_date, coverage_start_date, units = "days")))
 
 # summarize 
 coverage_summary <- events_full %>%
@@ -48,4 +85,7 @@ ggplot(events_summary, aes(x = group, y = Total_Events, fill = group)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Total Events: Pre-IBIS vs IBIS vs Post-IBIS", x = "Group", y = "Total Events") +
   theme_minimal()
+```
+```{r}
+colnames(ibis_coverage_end_date)
 ```
