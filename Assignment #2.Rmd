@@ -36,7 +36,7 @@ library(skimr)
 ```{r}
 events <- read_csv("events_toy.csv")
 report <- read_csv("report_toy.csv")
-glimpse(events)
+head(events)
 ```
 
 ```{r}
