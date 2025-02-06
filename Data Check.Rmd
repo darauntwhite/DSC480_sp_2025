@@ -46,33 +46,33 @@ glimpse(events_full)
 # add a new column; adding group(s)
 events_full <- events_full  %>%
   mutate(groups = case_when(
-    coverage_start_date < ibis_coverage_start_date ~ "Pre-IBIS",
-    coverage_start_date >= ibis_coverage_start_date & coverage_start_date <= ibis_coverage_end_date ~ "IBIS",
-    coverage_start_date > ibis_coverage_end_date ~ "Post-IBIS"
+    coverage_start_date < ibis_coverage_start_date ~ "Pre-IBIS", # before ibis coverage started
+    coverage_start_date >= ibis_coverage_start_date & coverage_start_date <= ibis_coverage_end_date ~ "IBIS", # during ibis coverage
+    coverage_start_date > ibis_coverage_end_date ~ "Post-IBIS" # after ibis coverage ended
   ))
 
-glimpse(events_full)
+head(events_full)
 ```
 
 ```{r}
 # counts the rows of groups
-events_full <- events %>%
-  group_by(group) %>%
+events_full %>%
+  group_by(groups) %>%
   summarise(Total_Events = n())  # counts each row and outputs a number
 
 # printing the summary
 print(events_full)
 
-glimpse(events_full)
+head(events_full)
 ```
 
 ```{r}
-events_full <- events %>%
+events_full %>%
   mutate(coverage_days = as.numeric(difftime(ibis_coverage_end_date, coverage_start_date, units = "days")))
 
 # summarize 
 coverage_summary <- events_full %>%
-  group_by(group) %>%
+  group_by(groups) %>%
   summarise(Total_Coverage_Days = sum(coverage_days, na.rm = TRUE))
 
 # printing the summary
@@ -86,6 +86,7 @@ ggplot(events_summary, aes(x = group, y = Total_Events, fill = group)) +
   labs(title = "Total Events: Pre-IBIS vs IBIS vs Post-IBIS", x = "Group", y = "Total Events") +
   theme_minimal()
 ```
+
 ```{r}
 colnames(ibis_coverage_end_date)
 ```
