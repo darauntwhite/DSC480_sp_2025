@@ -26,12 +26,6 @@ install.packages("vroom")
 
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 ```{r}
 events_full %>% 
   mutate(
@@ -171,53 +165,5 @@ if (!is.null(cleaned_data)) {
 } else {
   cat("Error: Data could not be cleaned.\n")
 }
-
-```
-
-```{# Load necessary libraries}
-library(tidyverse)
-library(lubridate)
-
-# Function to calculate descriptive statistics for pre-Ibis vs during Ibis
-pre_vs_during_ibis_stats <- function(events_cleaned) {
-  
-  # Define pre-Ibis and during-Ibis periods based on first_reminder_complete_date
-  ibis_start_date <- min(events_cleaned$first_reminder_complete_date, na.rm = TRUE)
-  
-  # Create a new column indicating pre-Ibis (TRUE for before ibis, FALSE for during or after)
-  events_cleaned <- events_cleaned %>%
-    mutate(pre_ibis = event_start_date < ibis_start_date)
-  
-  # Calculate total days under observation (difference between event_start_date and event_end_date)
-  events_cleaned <- events_cleaned %>%
-    mutate(observation_days = as.numeric(difftime(event_end_date, event_start_date, units = "days")))
-  
-  # Calculate total inpatient days (if the column exists for inpatient duration)
-  events_cleaned <- events_cleaned %>%
-    mutate(inpatient_days = ifelse(ibis_inpatient == 1, observation_days, 0))
-  
-  # Descriptive statistics for pre-Ibis vs during Ibis
-  stats <- events_cleaned %>%
-    group_by(pre_ibis) %>%
-    summarise(
-      total_patients = n(),
-      total_days_under_observation = sum(observation_days, na.rm = TRUE),
-      total_inpatient_days = sum(inpatient_days, na.rm = TRUE),
-      proportion_with_inpatient_admission = mean(ibis_inpatient == 1, na.rm = TRUE),
-      inpatient_admissions_count = sum(ibis_inpatient == 1, na.rm = TRUE)
-    )
-  
-  # Rename for clarity (pre-Ibis and during-Ibis)
-  stats <- stats %>%
-    mutate(pre_ibis = recode(pre_ibis, `TRUE` = "Pre-Ibis", `FALSE` = "During-Ibis"))
-  
-  return(stats)
-}
-
-# Call the function with your cleaned dataset (events_cleaned)
-descriptive_stats <- pre_vs_during_ibis_stats(events_cleaned)
-
-# View the descriptive statistics
-print(descriptive_stats)
 
 ```
