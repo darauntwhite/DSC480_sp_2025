@@ -1,0 +1,32 @@
+---
+title: "tasks_2025-02-24"
+---
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+events_full <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_events.csv")
+reports_full <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_report.csv")
+
+head(events_full)
+head(reports_full)
+```
+
+```{r}
+events_full %>% filter(org_name == "Unicare - Study") %>%
+  filter(event_start_date > ibis_coverage_start_date &
+           event_start_date < ibis_coverage_end_date) %>% 
+  summarize(sum(event_type == "inpatient"))
+
+```
+
+```{r}
+events_full %>% filter(pre_ibis_inpatient == 1 | event_type == "no_utilization") %>%
+  group_by(pid, event_type) %>%
+  summarize(count = n(), .groups = "drop") %>% pivot_wider(names_from = event_type, values_from = count) %>% replace(is.na(.), 0) %>% rename(ibis_inpatient_count = inpatient)
+```
+
+```{r}
+
+```

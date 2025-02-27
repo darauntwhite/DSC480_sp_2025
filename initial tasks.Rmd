@@ -1,0 +1,169 @@
+---
+title: "Untitled2"
+output: html_document
+date: "2025-02-16"
+---
+
+```{r libraries}
+library(survival)
+library(tidyverse)
+library(tidymodels)
+library(lubridate)
+library(lmtest)
+
+library(car)
+library(poissonreg)
+
+library(pscl)
+
+library(broom)
+library(broom.mixed)
+
+library(readr)
+library(skimr)
+
+install.packages("vroom")
+
+```
+
+```{r}
+events_full %>% 
+  mutate(
+    days_since_start = event_start_date - coverage_start_date,  # calculate days since coverage start
+    days_since_ibis = event_start_date - ibis_coverage_start_date  # calculate days since ibis coverage start
+  ) %>%
+  select(coverage_start_date, event_start_date, days_since_start, ibis_coverage_start_date, days_since_ibis)
+```
+
+```{r}
+events_full <- events_full %>%
+  mutate(
+    ibis_status = case_when(
+      event_start_date <= first_reminder_complete_date ~ "Ibis",
+      event_start_date > first_reminder_complete_date ~ "MIIA"
+    )
+  )
+print(events_full)
+```
+
+```{r}
+# Descriptive Stats for Total Patients, Total Days Under Observation, and Total Inpatient Days on IBIS
+descriptive_stats <- events_full %>%
+  group_by(ibis_status) %>%
+  summarise(
+    total_patients = n(),
+    total_days_under_observation = sum(as.numeric(event_end_date - event_start_date)),
+    
+    # Inpatient days (only consider those with inpatient during Ibis)
+    total_inpatient_days_ibis = sum(ifelse(ibis_inpatient == 1, as.numeric(event_end_date - event_start_date), 0)),
+    
+    # Total inpatient admissions (count of admissions with inpatient during Ibis)
+    total_inpatient_admissions_ibis = sum(ibis_inpatient == 1),
+    
+    # Proportion with inpatient admissions during Ibis
+    proportion_with_ibis_admission = mean(ibis_inpatient == 1)
+  )
+
+# View the result
+print(descriptive_stats)
+```
+
+```{r}
+# Function to read and clean events and reports
+read_and_clean <- function(events_file, report_file) {
+  
+  # Read events and reports data from the specified files
+  events <- read_csv(events_file)
+  report <- read_csv(report_file)
+  
+  # Clean the reports data
+  reports_full <- report %>%
+    mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+    mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+    rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+    mutate(across(event_type, ~ str_replace(.x, " ", "_"))) %>%
+    mutate(across(event_type, ~as.factor(.x)))
+  
+  # Clean the events data
+  events_full <- events %>%
+    mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+    mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+    rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+    mutate(across(event_type, ~ str_replace(.x, " ", "_"))) %>%
+    mutate(across(event_type, ~as.factor(.x)))
+  
+  # Return the cleaned data as a list
+  return(list(events_cleaned = events_full, reports_cleaned = reports_full))
+}
+
+```
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(lubridate)
+
+# Function to read and clean events and reports
+read_and_clean <- function(events_file, report_file) {
+  
+  # Try reading the events and report files with error handling
+  tryCatch({
+    # Read events and reports data from the specified files
+    events <- read_csv(events_file)
+    report <- read_csv(report_file)
+    
+  }, error = function(e) {
+    # Print the error message if reading fails
+    cat("Error reading files: ", e$message, "\n")
+    return(NULL)  # Return NULL to indicate failure
+  })
+  
+  # If files are successfully read, proceed with cleaning
+  if (exists("events") && exists("report")) {
+    # Clean the reports data
+    reports_full <- report %>%
+      mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+      mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+      rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+      mutate(across(event_type, ~ str_replace(.x, " ", "_"))) %>%
+      mutate(across(event_type, ~as.factor(.x)))
+    
+    # Clean the events data
+    events_full <- events %>%
+      mutate(across(contains("timestamp"), ~as.POSIXct(.x, format = "%Y-%m-%d %H:%M:%S"))) %>%
+      mutate(across(contains("timestamp"), ~as_date(.x))) %>%
+      rename_with(~str_replace(., "timestamp", "date"), contains("timestamp")) %>%
+      mutate(across(event_type, ~ str_replace(.x, " ", "_"))) %>%
+      mutate(across(event_type, ~as.factor(.x)))
+    
+    # Return the cleaned data as a list
+    return(list(events_cleaned = events_full, reports_cleaned = reports_full))
+  } else {
+    return(NULL)  # Return NULL if files could not be read
+  }
+}
+
+```
+
+```{r}
+# Set the file paths to your CSV files
+events_file <- "path/to/your/events_file.csv"  # Replace with actual path
+report_file <- "path/to/your/report_file.csv"  # Replace with actual path
+
+# Call the function to read and clean the data
+cleaned_data <- read_and_clean(events_file, report_file)
+
+# Check if the function executed successfully
+if (!is.null(cleaned_data)) {
+  # Access cleaned events and reports data
+  events_cleaned <- cleaned_data$events_cleaned
+  reports_cleaned <- cleaned_data$reports_cleaned
+  
+  # View the cleaned data
+  glimpse(events_cleaned)
+  glimpse(reports_cleaned)
+} else {
+  cat("Error: Data could not be cleaned.\n")
+}
+
+```
