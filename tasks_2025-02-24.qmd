@@ -14,17 +14,112 @@ head(reports_full)
 ```
 
 ```{r}
-events_full %>% filter(org_name == "Unicare - Study") %>%
-  filter(event_start_date > ibis_coverage_start_date &
-           event_start_date < ibis_coverage_end_date) %>% 
-  summarize(sum(event_type == "inpatient"))
+events_full_distinct <- events_full %>% distinct(pid, .keep_all = TRUE)
+
+head(events_full_distinct)
+```
+
+```{r}
+pre_ibis_inpatient_table <- events_full %>% filter(org_name == "Unicare - Study") %>% filter(pre_ibis_inpatient == 1 | event_type == "no_utilization") %>%
+  group_by(pid, event_type) %>%
+  summarize(count = n(), .groups = "drop") %>% pivot_wider(names_from = event_type, values_from = count) %>% replace(is.na(.), 0) %>% rename(ibis_inpatient_count = inpatient)
+```
+
+```{r}
+report_full %>% filter(org_name == "Unicare - Study") %>%
+  select(pid, total_ibis_inpatient) %>% head()
+
+ibis_inpatient_table %>% filter(pid == 9745 )
+```
+
+```{r}
+pre_ibis_inpatient_table %>% count(ibis_inpatient_count)
+```
+
+```{r}
+# total admissions
+pre_ibis_data <- reports_full %>% filter(pre_ibis_inpatient == 1 & org_name == "Unicare - Study")
+during_ibis_data <- reports_full %>% filter(ibis_inpatient == 1 & org_name == "Unicare - Study")
+
+# count totals for each period
+total_admissions_pre_ibis <- nrow(pre_ibis_data)
+total_admissions_during_ibis <- nrow(during_ibis_data)
+
+# print the counts
+cat("Total Admissions Pre-IBIS:", total_admissions_pre_ibis, "\n")
+cat("Total Admissions During IBIS:", total_admissions_during_ibis, "\n")
 
 ```
 
 ```{r}
-events_full %>% filter(pre_ibis_inpatient == 1 | event_type == "no_utilization") %>%
-  group_by(pid, event_type) %>%
-  summarize(count = n(), .groups = "drop") %>% pivot_wider(names_from = event_type, values_from = count) %>% replace(is.na(.), 0) %>% rename(ibis_inpatient_count = inpatient)
+# calculate total patient years for each period by summarizing total covered days per patient
+pre_ibis_patient_data <- pre_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_pre_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+during_ibis_patient_data <- during_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_during_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+# convert covered days into patient years
+pre_ibis_patient_data <- pre_ibis_patient_data %>%
+  mutate(patient_years_pre_ibis = total_days_pre_ibis / 365)
+
+during_ibis_patient_data <- during_ibis_patient_data %>%
+  mutate(patient_years_during_ibis = total_days_during_ibis / 365)
+
+# calculate total patient years for each period
+total_patient_years_pre_ibis <- sum(pre_ibis_patient_data$patient_years_pre_ibis, na.rm = TRUE)
+total_patient_years_during_ibis <- sum(during_ibis_patient_data$patient_years_during_ibis, na.rm = TRUE)
+
+# per 1000 patient years
+admissions_per_1000_pre_ibis <- (total_admissions_pre_ibis / total_patient_years_pre_ibis) * 1000
+admissions_per_1000_during_ibis <- (total_admissions_during_ibis / total_patient_years_during_ibis) * 1000
+
+# results
+cat("Admissions per 1000 Patient Years Pre-IBIS:", admissions_per_1000_pre_ibis, "\n")
+cat("Admissions per 1000 Patient Years During IBIS:", admissions_per_1000_during_ibis, "\n")
+
+```
+
+```{r}
+# count the number of admissions per patient for each period
+admissions_per_patient_pre_ibis <- pre_ibis_data %>%
+  group_by(pid) %>%
+  summarise(admissions_pre_ibis = n())
+
+admissions_per_patient_during_ibis <- during_ibis_data %>%
+  group_by(pid) %>%
+  summarise(admissions_during_ibis = n())
+
+# count how many patients had 0, 1, 2, 3, ... admissions
+admissions_count_pre_ibis <- table(admissions_per_patient_pre_ibis$admissions_pre_ibis)
+admissions_count_during_ibis <- table(admissions_per_patient_during_ibis$admissions_during_ibis)
+
+# print the counts
+print(admissions_count_pre_ibis)
+print(admissions_count_during_ibis)
+
+```
+
+```{r}
+# calculate total inpatient days for each period
+pre_ibis_inpatient_data <- pre_ibis_data %>% group_by(pid) %>%
+  summarise(total_inpatient_days_pre_ibis = sum(pre_ibis_inpatient_days, na.rm = TRUE))
+
+during_ibis_inpatient_data <- during_ibis_data %>% group_by(pid) %>%
+  summarise(total_inpatient_days_during_ibis = sum(ibis_inpatient_days, na.rm = TRUE))
+
+# calculate total inpatient days for each period
+total_inpatient_days_pre_ibis <- sum(pre_ibis_inpatient_data$total_inpatient_days_pre_ibis, na.rm = TRUE)
+total_inpatient_days_during_ibis <- sum(during_ibis_inpatient_data$total_inpatient_days_during_ibis, na.rm = TRUE)
+
+#per 1000 patient days
+inpatient_days_per_1000_pre_ibis <- (total_inpatient_days_pre_ibis / total_patient_years_pre_ibis) * 1000
+inpatient_days_per_1000_during_ibis <- (total_inpatient_days_during_ibis / total_patient_years_during_ibis) * 1000
+
+# print the results
+cat("Inpatient Days per 1000 Days Pre-IBIS:", inpatient_days_per_1000_pre_ibis, "\n")
+cat("Inpatient Days per 1000 Days During IBIS:", inpatient_days_per_1000_during_ibis, "\n")
+
 ```
 
 ```{r}

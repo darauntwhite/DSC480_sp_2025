@@ -8,12 +8,12 @@ library(tidyverse)
 library(dplyr)
 
 # Actual data files
-#events <- read_csv("../data/2024_11_25_utilization_events.csv")
-#report <- read_csv("../data/2024_11_25_utilization_report.csv")
+events <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_events.csv")
+report <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_report.csv")
 
 # Toy data files- these have the row values for each column shuffled separately.
-events <- read_csv("events_toy.csv")
-report <- read_csv("report_toy.csv")
+#events <- read_csv("events_toy.csv")
+#report <- read_csv("report_toy.csv")
 
 
 ## A bit of cleaning
