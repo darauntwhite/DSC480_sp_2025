@@ -1,0 +1,207 @@
+---
+title: "march_report"
+format: pdf
+---
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+install.packages('tinytex')
+tinytex::install_tinytex()
+
+
+events_full <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_events.csv")
+reports_full <- read.csv("/Users/daraun/Downloads/2025_02_18_utilization_report.csv")
+
+head(events_full)
+head(reports_full)
+```
+
+# Creating a table that is filtered by different variables to achieve the outcome wanted.
+
+```{r}
+pre_ibis_inpatient_table <- events_full %>% filter(org_name == "Unicare - Study") %>% filter(pre_ibis_inpatient == 1 | event_type == "no_utilization") %>%
+  group_by(pid, event_type) %>%
+  summarize(count = n(), .groups = "drop") %>% pivot_wider(names_from = event_type, values_from = count) %>% replace(is.na(.), 0) %>% rename(ibis_inpatient_count = inpatient)
+```
+
+Retrieving the counts from the newly created table.
+
+```{r}
+pre_ibis_inpatient_table %>% count(ibis_inpatient_count)
+```
+
+# Getting the counts from each period (pre/during/post-IBIS).
+
+```{r}
+# total admissions
+pre_ibis_data <- events_full %>% filter(org_name == "Unicare - Study" & pre_ibis_inpatient == 1)
+during_ibis_data <- events_full %>% filter(ibis_inpatient == 1 & org_name == "Unicare - Study")
+post_ibis_data <- events_full %>% filter(pre_ibis_inpatient != 1 & ibis_inpatient == 0 & org_name == "Unicare - Study")
+
+# count totals for each period
+total_admissions_pre_ibis <- nrow(pre_ibis_data)
+total_admissions_during_ibis <- nrow(during_ibis_data)
+total_admissions_post_ibis <- nrow(post_ibis_data)
+
+# print the counts
+print(total_admissions_pre_ibis)
+print(total_admissions_during_ibis)
+print(total_admissions_post_ibis)
+```
+
+# Calculating total patient years for each period 
+
+```{r}
+# calculate total patient years for each period by summarizing total covered days per patient
+pre_ibis_patient_data <- pre_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_pre_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+during_ibis_patient_data <- during_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_during_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+# convert covered days into patient years
+pre_ibis_patient_data <- pre_ibis_patient_data %>%
+  mutate(patient_years_pre_ibis = total_days_pre_ibis / 365)
+
+during_ibis_patient_data <- during_ibis_patient_data %>%
+  mutate(patient_years_during_ibis = total_days_during_ibis / 365)
+
+# calculate total patient years for each period
+total_patient_years_pre_ibis <- sum(pre_ibis_patient_data$patient_years_pre_ibis, na.rm = TRUE)
+total_patient_years_during_ibis <- sum(during_ibis_patient_data$patient_years_during_ibis, na.rm = TRUE)
+
+# per 1000 patient years
+admissions_per_1000_pre_ibis <- (total_admissions_pre_ibis / total_patient_years_pre_ibis) * 1000
+admissions_per_1000_during_ibis <- (total_admissions_during_ibis / total_patient_years_during_ibis) * 1000
+
+# results
+print(admissions_per_1000_pre_ibis)
+print(admissions_per_1000_during_ibis)
+```
+
+# Calculating total patient days for each period.
+
+```{r}
+# calculate total inpatient days for each period
+pre_ibis_inpatient_data <- pre_ibis_data %>% group_by(pid) %>%
+  summarise(total_inpatient_days_pre_ibis = sum(pre_ibis_inpatient_days, na.rm = TRUE))
+
+during_ibis_inpatient_data <- during_ibis_data %>% group_by(pid) %>%
+  summarise(total_inpatient_days_during_ibis = sum(ibis_inpatient_days, na.rm = TRUE))
+
+# calculate total inpatient days for each period
+total_inpatient_days_pre_ibis <- sum(pre_ibis_inpatient_data$total_inpatient_days_pre_ibis, na.rm = TRUE)
+total_inpatient_days_during_ibis <- sum(during_ibis_inpatient_data$total_inpatient_days_during_ibis, na.rm = TRUE)
+
+#per 1000 patient days
+inpatient_days_per_1000_pre_ibis <- (total_inpatient_days_pre_ibis / total_patient_years_pre_ibis) * 1000
+inpatient_days_per_1000_during_ibis <- (total_inpatient_days_during_ibis / total_patient_years_during_ibis) * 1000
+
+# print the results
+print(inpatient_days_per_1000_pre_ibis)
+print(inpatient_days_per_1000_during_ibis)
+
+```
+
+# This code computes the admit counts for patients pre/during/post-IBIS.
+
+```{r}
+# count number of admissions per patient for pre-Ibis
+pre_ibis_counts <- events_full %>%
+  filter(pre_ibis_inpatient == 1, event_type == "inpatient") %>%
+  group_by(pid) %>%
+  summarise(admit_count = n()) %>%
+  count(admit_count)
+
+# count number of admissions per patient for during-Ibis
+during_ibis_counts <- events_full %>%
+  filter(ibis_inpatient == 1, event_type == "inpatient") %>%
+  group_by(pid) %>%
+  summarise(admit_count = n()) %>%
+  count(admit_count)
+
+post_ibis_counts <- events_full %>%
+  filter(ibis_inpatient == 0, event_type == "inpatient") %>%
+  group_by(pid) %>%
+  summarise(admit_count = n()) %>%
+  count(admit_count)
+
+# display results
+pre_ibis_counts
+during_ibis_counts
+post_ibis_counts
+```
+
+# By taking the total number of covered days per patient, this code is used to calculate covered years. 
+
+```{r}
+# calculate total patient years for each period by summarizing total covered days per patient
+pre_ibis_patient_data <- pre_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_pre_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+
+during_ibis_patient_data <- during_ibis_data %>% group_by(pid) %>%
+  summarise(total_days_during_ibis = sum(covered_days_on_ibis, na.rm = TRUE))
+
+pre_ibis_patient_data
+during_ibis_patient_data
+```
+
+# Wilcoxon Test
+
+```{r}
+# Run the Wilcoxon signed-rank test
+wilcoxon_result <- wilcox.test(total_admissions_pre_ibis, total_admissions_post_ibis, paired = TRUE)
+wilcoxon_result
+```
+
+# Breaking down the results:
+
+V = 0: This means that the sum of the positive ranks is zero, indicating that all differences between paired observations are either zero or negative.
+
+p-value = 1: A p-value of 1 suggests that there is no evidence to reject the null hypothesis. In other words, the observed data is perfectly consistent with the null hypothesis.
+
+Alternative hypothesis: The test was conducted to determine if the true location shift (i.e., the median difference between the two groups) is not equal to 0.
+
+Interpretation: Since the p-value is very high, it suggests that there is no significant difference between total_admissions_pre_ibis and total_admissions_post_ibis. The intervention (IBIS) does not appear to have changed the total admissions in a statistically significant way.
+
+# Log Model
+
+```{r}
+logit_model <- glm(ibis_inpatient ~ pre_ibis_inpatient, data = events_full, family = "binomial")
+
+summary(logit_model)
+```
+
+# Results & its meaning:
+
+Intercept: this represents the log-odds of being an ibis inpatient when pre_ibis_inpatient = 0.
+
+-16.76, p = 0.959 shows that there is no relationship between being a pre-ibis inpatient and ibis inpatient. As well as the p-value being very high showing that this effect is not statistically significant. pre_ibis_inpatient does not influence ibis_inpatient.
+
+z-value being close to zero means that it is not statistically significant.
+
+```{r}
+# McNemar’s Test: Check probability of admission pre vs. post.
+pre_post_matrix <- matrix(c(
+  sum(pre_ibis_counts$admit_count == 0 & during_ibis_counts$admit_count > 0),
+  sum(pre_ibis_counts$admit_count > 0 & during_ibis_counts$admit_count == 0),
+  sum(pre_ibis_counts$admit_count > 0 & during_ibis_counts$admit_count > 0),
+  sum(pre_ibis_counts$admit_count == 0 & during_ibis_counts$admit_count == 0)
+), nrow = 2, byrow = TRUE)
+
+mcnemar_result <- mcnemar.test(pre_post_matrix)
+mcnemar_result
+```
+
+# Results Broken Down:
+
+McNemar's chi-squared = 12.071:
+
+This test statistic is based on the expected values in the paired categories. A higher value suggests a stronger difference between the two conditions (pre & post).
+
+df = 1 due to the test taking in only two conditions (pre & post).
+
+The p-value of 0.000512 shows that there is strong evidence against the null hypothesis, meaning that there is a strong statistically significant between the pre & post conditions.
