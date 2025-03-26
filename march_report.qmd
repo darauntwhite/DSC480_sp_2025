@@ -18,6 +18,8 @@ head(events_full)
 head(reports_full)
 ```
 
+.
+
 # Creating a table that is filtered by different variables to achieve the outcome wanted.
 
 ```{r}
